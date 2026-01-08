@@ -79,6 +79,67 @@ achieve **84%** of the optimal score (`:win 84`).
 Hence, do not need to manage 24 complex factors. We only need to manage
 the 4 "keys."
 
+----
+
+## How Does this Work?
+
+XAI is a multi-objective optimizers. It was developed as a "straw man"
+algorothm for baselining more sophisticated approaches. In the following, if there
+simple and cleever ways to do something, XAI used the simpler.
+
+(Aside: strange to say, this seemingly simplistic approach works remarkable well. Have
+we been overly complex in our research? Perhaps.)
+
+
+In XAI, if we have (say) three goals 
+
+    debt, happiness, weath
+
+that we want to minimze, maximize and maxiamize, then "heaven" for those goals is
+
+    0,1,1
+
+For each row of data, we can look at the _y_ values, normalizing them 0..1 then score them by their
+disttance to heaven. E.g. if i have average debt (.5), high happiness (.75) and high wealth (.8)
+then that the distance to heaven is
+
+    sqrt(squred(.5-0) + squared(.75 - 1) + squared(.8 - 1)) / sqrt(3)
+    = sqrt(.25 + 0.0625 + 0.04)
+    = 0.34
+
+Note that _smaller_ distance are _better_ since that means we are getting closer to heaven.
+
+All the _x_ inputs are  divited into (say) 7 cuts and we log what "heavens" are seen in each cut. 
+To divide the x values we track _xmu_ and _xsd_ then cut  _xi_ value
+as follows:
+
+    BINS = 7 # for example
+    z = (xi - xmu) / xsd
+    cut = int(BINS / (1+exp(-1.7 * z)) # cut is one of 0,1,2,..., BINS-1
+
+(Aside:  if you are interested, this little bit of maths creates
+equal-population bins without needing to sort the data or calculate
+complex integrals.  It uses an approximate  Logistic Sigmoid to
+estimate the normal cumulative distribution function.)
+
+Now that we have the cuts, we add in what "distance to heaven"
+values are seen in each cut. For exanple, here we have split "age"
+into seven cuts. The summary table (in organge) shows where  the
+_y_ values fell.
+
+<img width=700 src="etc/img/margin.png">
+
+XAI looks over all the inuts to see pick the cut with lowest _y_ scores.
+If there is a tie, the _sd_ tells us which one to use.
+For example, in this data,
+we would decide to cut _age_ on _cut4_ sicne the _mu=42.6_
+value in cut4 since that tells us that  this cut is cloest to heaven. Note that _cut4_ ties with _cut0_
+but we ignore _cut0_ since the uncertainty there is higher.
+
+After that, tree generation is just recursive cutting. At each level of the tree, data is split on the best cut.
+XAI then recurses into each split.
+
+
 ---
 
 ## FAQ: Philosophy & Design
@@ -86,7 +147,6 @@ the 4 "keys."
 ### 1. The "Backpacking" Philosophy (Why no Pandas/Numpy?)
 
 **Q: Why implement custom `Num`/`Sym` classes and CSV parsers
-instead of using industry standards like Pandas?**
 
 **A:** We practice **"Backpacking"** software design—carrying only
 what is strictly necessary. By removing heavy external dependencies,

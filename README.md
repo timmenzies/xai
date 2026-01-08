@@ -1,10 +1,14 @@
 # xai.py: Explainable Multi-Objective Optimization
 
 **xai.py** is a lightweight, zero-dependency framework for
-multi-objective optimization. It is an experiment in ``data lite'' reasoning.
+multi-objective optimization. It was developed as a “straw man”
+algorothm for baselining more sophisticated approaches. In the following, if there
+simple and cleever ways to do something, XAI used the simpler.
+
+(Aside: strange to say, this seemingly simplistic approach works remarkable well. Have
+we been overly complex in our research?)
 
 ## Why Xai.py?
-
 
 
 > *"In any field, find the strangest thing and explore it."*
@@ -18,7 +22,7 @@ required us to manage every one of those states, we would never ship
 a single line of code.
 
 Yet, software *does* work. We build the Web, flight controllers,
-and banking systems.
+and banking systems and and and.... 
 
 Sure that software sometimes does not work. Software sometimes crashes—perhaps at the most
 awkward or dangerous moment. But the fact that it ever works at all, ever, is puzzling.
@@ -81,15 +85,49 @@ the 4 "keys."
 
 ----
 
-## How Does this Work?
+## Why do I call this "X" for explanation
 
-XAI is a multi-objective optimizers. It was developed as a "straw man"
-algorothm for baselining more sophisticated approaches. In the following, if there
-simple and cleever ways to do something, XAI used the simpler.
+Internally, XAI is a regression tree learner where the goal is a aggregation of multiple
+goals. The trees are built from tiny samples of the date (just a few dozen rows) so the resuting
+trees are always very small.
 
-(Aside: strange to say, this seemingly simplistic approach works remarkable well. Have
-we been overly complex in our research? Perhaps.)
+Traditonally, decision trees for single goals may not be a good explanation tool since they can
+grow incomprehensiabily large. But I've found that for multi-goal reasoning, when learned
+on a few dozens examples, the resulting tree is effecive for sorting hold-out data good to bad
+(so all yu need to do is look at ,say, the five top items in that sort).
 
+And when we compare that approach to other methods (LIME, SHAP, etc) we do much better since
+other XAI tools tells you attributes are mportant while my XAI tells you what ranges are improtant (i.e.
+my tools tell you that X is im import _up to this point_). This means you can glance at my small trees
+and make polocy decisions about (e.g.) how much to change something.
+Unlike black-box models (Neural Nets) or feature-weight heuristics (SHAP/LIME), a tiny tree satisfies the complete **Audit of Causal Explanations** by mapping user questions directly to graph traversals.
+
+```text
+       [Root]
+      /      \
+[Bad Branch]  [Good Branch]
+(μ=0.79, σ=0.3)  (μ=0.27, σ=0.05)
+    ^
+    |
+ You are here
+
+```
+
+| User Question | The Tree's Answer (Automated) |
+| --- | --- |
+| **1. How does it work?** | **Global View:** Visualizes the full risk/reward landscape (μ vs σ). |
+| **2. How do I use it?** | **Prediction:** Maps input row *R* to the matching leaf (μ). |
+| **3. What did it just do?** | **Trace:** Prints the specific logic path (e.g., `x < 5` AND `y > 10`). |
+| **4. What does it achieve?** | **Context:** Ranks the current result against the best/worst possible branches. |
+| **5. What to do next?** | **Recourse:** Finds the nearest better branch minimizing edit distance ( |
+| **6. How much effort?** | **Cost:** Quantifies the specific feature changes required for the recourse. |
+| **7. What will it do next?** | **Sensitivity:** Predicts outcome if input drifts by Δ. |
+| **8. Why didn't it do Z?** | **Contrast:** Identifies the specific rule violation preventing outcome *Z*. |
+| **9. How do I avoid failure?** | **Safety:** Identifies the "cliff edge" boundary to the worst branch (High σ). |
+
+*Based on Pearl's Ladder of Causation and Gigerenzer's Fast & Frugal Heuristics.*
+
+## Under the Hood, How Does XAI  Work?
 
 In XAI, if we have (say) three goals 
 
@@ -139,6 +177,19 @@ but we ignore _cut0_ since the uncertainty there is higher.
 After that, tree generation is just recursive cutting. At each level of the tree, data is split on the best cut.
 XAI then recurses into each split.
 
+```python
+def treeGrow(data, rows, cut=None, uses=set()):
+  tree = Tree(cut)
+  if len(rows) > the.leaf*2: # stop when too few rows
+    if cut1 := findBestCut(data,rows):
+      ok,no = [],[]
+      for row in rows: (ok if cutSelects(cut1,row) else no).append(row)
+      if ok and no:
+        uses.add(cut1.txt)
+        tree.kids[True]  = treeGrow(data, ok, cut1, uses)
+        tree.kids[False] = treeGrow(data, no, cut1, uses)
+  return tree
+```
 
 ---
 
